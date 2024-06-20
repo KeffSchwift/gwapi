@@ -18,7 +18,9 @@ exports.createGiveaway = async (req, res) => {
             createdAt: Math.floor(giveaway.createdAt.getTime() / 1000),
             updatedAt: Math.floor(giveaway.updatedAt.getTime() / 1000)
         });
+        console.log(`Giveaway created: ${JSON.stringify(giveaway.toJSON())}`);
     } catch (error) {
+        console.error('Error creating giveaway:', error.message);
         res.status(500).json({ error: error.message });
     }
 };
@@ -36,7 +38,9 @@ exports.enterGiveaway = async (req, res) => {
             createdAt: Math.floor(entry.createdAt.getTime() / 1000),
             updatedAt: Math.floor(entry.updatedAt.getTime() / 1000)
         });
+        console.log(`Entry created: ${JSON.stringify(entry.toJSON())}`);
     } catch (error) {
+        console.error('Error creating entry:', error.message);
         res.status(500).json({ error: error.message });
     }
 };
@@ -48,8 +52,10 @@ exports.updateGiveaway = async (req, res) => {
 
     try {
         await Giveaway.update({ endTime, prize, winnersCount, webhookUrl }, { where: { id } });
-        res.status(200).json({ message: 'Sorteo actualizado' });
+        res.status(200).json({ message: 'Giveaway updated' });
+        console.log(`Giveaway updated: ${id}`);
     } catch (error) {
+        console.error('Error updating giveaway:', error.message);
         res.status(500).json({ error: error.message });
     }
 };
@@ -60,14 +66,16 @@ exports.endGiveaway = async (req, res) => {
     try {
         const giveaway = await Giveaway.findByPk(id);
         if (!giveaway) {
-            return res.status(404).json({ message: 'No se ha encontrado el sorteo' });
+            console.error(`Giveaway not found: ${id}`);
+            return res.status(404).json({ message: 'Giveaway not found' });
         }
 
         const entries = await Entry.findAll({ where: { giveawayId: id } });
         const winners = [];
 
         if (entries.length === 0) {
-            await sendWebhook(giveaway.webhookUrl, `❌ No hubieron participantes en el sorteo de (${giveaway.prize}) y por lo tanto se ha cancelado.`);
+            console.log(`No participants for giveaway ${id}`);
+            await sendWebhook(giveaway.webhookUrl, `El sorteo ${id} (${giveaway.prize}) ha terminado sin participantes.`);
         } else {
             for (let i = 0; i < giveaway.winnersCount; i++) {
                 if (entries.length === 0) break;
@@ -75,15 +83,17 @@ exports.endGiveaway = async (req, res) => {
                 const winner = entries.splice(winnerIndex, 1)[0];
                 winners.push(winner.userId);
             }
-
-            await sendWebhook(giveaway.webhookUrl, `🎊 Los ganadores del sorteo de (${giveaway.prize}) son: ${winners.join(', ')}`);
+            console.log(`Winners for giveaway ${id}: ${winners.join(', ')}`);
+            await sendWebhook(giveaway.webhookUrl, `Los ganadores del sorteo ${id} (${giveaway.prize}) son: ${winners.join(', ')}`);
         }
 
         await Giveaway.destroy({ where: { id } });
         await Entry.destroy({ where: { giveawayId: id } });
 
-        res.status(200).json({ message: 'Sorteo terminado', winners });
+        res.status(200).json({ message: 'Giveaway ended', winners });
+        console.log(`Giveaway ended: ${id}`);
     } catch (error) {
+        console.error(`Error ending giveaway ${id}:`, error.message);
         res.status(500).json({ error: error.message });
     }
 };
