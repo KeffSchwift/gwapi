@@ -24,6 +24,8 @@ const Giveaway = sequelize.define('Giveaway', {
         type: DataTypes.STRING,
         allowNull: false
     }
+}, {
+    tableName: 'Giveaways' 
 });
 
 module.exports = Giveaway;
