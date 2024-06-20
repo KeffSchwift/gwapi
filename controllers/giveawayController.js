@@ -48,7 +48,7 @@ exports.updateGiveaway = async (req, res) => {
 
     try {
         await Giveaway.update({ endTime, prize, winnersCount, webhookUrl }, { where: { id } });
-        res.status(200).json({ message: 'Giveaway updated' });
+        res.status(200).json({ message: 'Sorteo actualizado' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -60,23 +60,29 @@ exports.endGiveaway = async (req, res) => {
     try {
         const giveaway = await Giveaway.findByPk(id);
         if (!giveaway) {
-            return res.status(404).json({ message: 'Giveaway not found' });
+            return res.status(404).json({ message: 'No se ha encontrado el sorteo' });
         }
 
         const entries = await Entry.findAll({ where: { giveawayId: id } });
         const winners = [];
-        for (let i = 0; i < giveaway.winnersCount; i++) {
-            if (entries.length === 0) break;
-            const winnerIndex = Math.floor(Math.random() * entries.length);
-            const winner = entries.splice(winnerIndex, 1)[0];
-            winners.push(winner.userId);
+
+        if (entries.length === 0) {
+            await sendWebhook(giveaway.webhookUrl, `❌ No hubieron participantes en el sorteo de (${giveaway.prize}) y por lo tanto se ha cancelado.`);
+        } else {
+            for (let i = 0; i < giveaway.winnersCount; i++) {
+                if (entries.length === 0) break;
+                const winnerIndex = Math.floor(Math.random() * entries.length);
+                const winner = entries.splice(winnerIndex, 1)[0];
+                winners.push(winner.userId);
+            }
+
+            await sendWebhook(giveaway.webhookUrl, `🎊 Los ganadores del sorteo de (${giveaway.prize}) son: ${winners.join(', ')}`);
         }
 
-        await sendWebhook(giveaway.webhookUrl, `Los ganadores del sorteo ${id} (${giveaway.prize}) son: ${winners.join(', ')}`);
         await Giveaway.destroy({ where: { id } });
         await Entry.destroy({ where: { giveawayId: id } });
 
-        res.status(200).json({ message: 'Giveaway ended', winners });
+        res.status(200).json({ message: 'Sorteo terminado', winners });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
